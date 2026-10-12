@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using WiiFlightStickApp.Models;
 
 namespace WiiFlightStickApp.Services
@@ -9,36 +8,77 @@ namespace WiiFlightStickApp.Services
         /// <summary>
         /// 生のバイト列を解析してWiiRemoteDataに変換します。
         /// </summary>
-        /// <param name="rawData">Bluetoothから受信した生のバイト配列</param>
+        /// <param name="rawData">HIDから受信した生のバイト配列</param>
         /// <returns>解析されたデータ</returns>
         public static WiiRemoteData Parse(byte[] rawData)
         {
             var data = new WiiRemoteData();
 
-            // --- パケット解析の基本構造 (Wiiリモコンのプロトコルに基づく例) ---
-            // 実際には、受信したデータのヘッダーを確認し、正しいパケットか判定します。
-            if (rawData == null || rawData.Length < 10) return data;
+            if (rawData == null || rawData.Length < 3) return data;
 
-            // 例: [Header(2byte)][Type(1byte)][Data(n bytes)][Checksum(1byte)]
-            // ここでは仮の解析ロジックを記述します。実際の通信が始まった際に、
-            // リモコンから取得した正確なバイト位置に置き換えます。
+            // デバッグ用に生のデータを文字列として保持（UI表示用）
+            data.RawDataString = BitConverter.ToString(rawData, 0, Math.Min(rawData.Length, 32));
 
-            /* 
-            // 仮の加速度解析 (例: byte[2] で X, Y, Z を表現)
-            data.AccelX = BitConverter.ToInt16(rawData, 3); // 3番目から2バイト
-            data.AccelY = BitConverter.ToInt16(rawData, 5);
-            data.AccelZ = BitConverter.ToInt16(rawData, 7);
+            byte reportId = rawData[0];
 
-            // 仮のボタン解析 (例: byte[1] でビットフラグ)
-            byte buttons = rawData[9];
-            for (int i = 0; i < 10; i++)
+            // ボタンデータの解析 (ほとんどのレポートでByte 1-2がボタンデータ)
+            if (rawData.Length >= 3)
             {
-                data.Buttons[i] = (buttons & (1 << i)) != 0;
-            }
-            */
+                // Byte 1 をボタン 0-7 に割り当て
+                byte b1 = rawData[1];
+                for (int i = 0; i < 8; i++)
+                {
+                    data.Buttons[i] = (b1 & (1 << i)) != 0;
+                }
 
-            // 現在は通信層の実装を待つため、解析ロジックの枠組みだけ用意します。
+                // Byte 2 をボタン 8-15 に割り当て
+                byte b2 = rawData[2];
+                for (int i = 0; i < 8; i++)
+                {
+                    data.Buttons[i + 8] = (b2 & (1 << i)) != 0;
+                }
+            }
+
+            switch (reportId)
+            {
+                case 0x31: // Core Buttons and Accelerometer
+                case 0x35: // Core Buttons and Accelerometer with 16 Extension Bytes
+                case 0x3E: // Interleaved Core Buttons and Accelerometer (Part 1)
+                case 0x3F: // Interleaved Core Buttons and Accelerometer (Part 2)
+                    if (rawData.Length >= 6)
+                    {
+                        // 加速度センサーの生値をそのまま格納（計算なし）
+                        data.AccelX = rawData[3];
+                        data.AccelY = rawData[4];
+                        data.AccelZ = rawData[5];
+
+                        // ジャイロセンサーの生値（もし含まれていれば）
+                        if (rawData.Length >= 9||true)
+                        {
+                            data.GyroX = rawData[6];
+                            data.GyroY = rawData[7];
+                            data.GyroZ = rawData[8];
+                        }
+                    }
+                    break;
+
+                default:
+                    break;
+            }
+
             return data;
+        }
+
+        /// <summary>
+        /// バイト配列からビッグエンディアンの符号付き16ビット整数を読み取ります。
+        /// </summary>
+        private static double ReadSignedShort(byte[] data, int offset)
+        {
+            if (offset + 1 >= data.Length) return 0;
+            
+            // ビッグエンディアンとして結合
+            short value = (short)((data[offset] << 8) | data[offset + 1]);
+            return value;
         }
     }
 }

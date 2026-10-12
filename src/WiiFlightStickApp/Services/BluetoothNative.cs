@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 namespace WiiFlightStickApp.Services
 {
     /// <summary>
-    /// Windows Bluetooth API (Win32) の P/Invoke 定義
+    /// Windows Bluetooth API (P/Invoke) の定義
     /// </summary>
     public static class BluetoothNative
     {
@@ -13,7 +13,7 @@ namespace WiiFlightStickApp.Services
         public static extern int BluetoothFindFirst(ref Guid serviceGuid, out IntPtr pDevice, uint flags);
 
         [DllImport("BluetoothAPIs.dll", CharSet = CharSet.Unicode)]
-        public static extern int BluetoothGetDeviceInfo(IntPtr pDevice, [Out] ref BluetoothDeviceInfo deviceInfo, uint flags);
+        public static extern int BluetoothGetDeviceInfo(IntPtr pDevice, ref BluetoothDeviceInfo deviceInfo, uint flags);
 
         // RFCOMM接続やストリーム操作に必要なAPI（必要に応じて追加）
         // ※Wiiリモコンの通信にはRFCOMMプロトコルを使用するため、
@@ -28,6 +28,7 @@ namespace WiiFlightStickApp.Services
             public int Device_NameLength;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
             public string Device_Name;
+            // 他のフィールドは必要に応じて追加
         }
 
         // 定数定義
